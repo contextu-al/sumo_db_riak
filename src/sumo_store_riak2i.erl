@@ -434,7 +434,7 @@ when FieldType =:= datetime; FieldType =:= date ->
   case {FieldType, sumo_utils:is_datetime(FieldValue)} of
     {datetime, true} -> date_util:datetime_to_epoch(FieldValue);
     {date, true} -> date_util:datetime_to_epoch({FieldValue, {0, 0, 0}});
-    _ -> date_util:datetime_to_epoch(iso8601:parse(FieldValue))
+    _ -> FieldValue
   end;
 
 sleep_fun(custom, _, FieldValue, FieldAttrs) ->
