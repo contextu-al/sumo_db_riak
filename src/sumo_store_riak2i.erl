@@ -459,18 +459,18 @@ wakeup_fun(_, _, undefined, _) -> undefined;
 wakeup_fun(_, _, <<"$nil">>, _) -> undefined;
 
 wakeup_fun(FieldType, _, FieldValue, _)
-when FieldType =:= datetime and is_binary(FieldValue); FieldType =:= date and is_binary(FieldValue) ->
+when FieldType =:= datetime and is_binary(FieldValue);
+     FieldType =:= date and is_binary(FieldValue) ->
   iso8601:parse(FieldValue);
 
 wakeup_fun(FieldType, _, FieldValue, _)
 when FieldType =:= datetime and is_float(FieldValue);
-     FieldType =:= date and is_float(FieldValue)
-      ->
+     FieldType =:= date and is_float(FieldValue) ->
   date_util:timestamp_to_datetime(round(FieldValue));
+
 wakeup_fun(FieldType, _, FieldValue, _)
 when FieldType =:= datetime and is_integer(FieldValue);
-     FieldType =:= date and is_integer(FieldValue)
-      ->
+     FieldType =:= date and is_integer(FieldValue) ->
   date_util:timestamp_to_datetime(FieldValue);
 
 wakeup_fun(integer, _, FieldValue, _) when is_binary(FieldValue) ->

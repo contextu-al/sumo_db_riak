@@ -73,6 +73,7 @@ init(Options) ->
   Host = proplists:get_value(host, Options, "127.0.0.1"),
   Port = proplists:get_value(port, Options, 8087),
   Opts = riak_opts(Options),
+  logger:debug("Riak options ~p", Opts),
   {ok, #state{host = Host, port = Port, opts = Opts}}.
 
 %% @todo: implement connection pool.
@@ -116,7 +117,9 @@ riak_opts(Options) ->
       true -> [{credentials, User, Pass}];
       _ -> []
     end,
-  case lists:keyfind(connect_timeout, 1, Options) of
-    {_, V1} -> [{connect_timeout, V1}, {auto_reconnect, true}] ++ Opts0;
-    _ -> [{auto_reconnect, true}] ++ Opts0
-  end.
+  Opts1 =
+    case lists:keyfind(connect_timeout, 1, Options) of
+      {_, V1} -> [{connect_timeout, V1}, {auto_reconnect, true}] ++ Opts0;
+      _ -> [{auto_reconnect, true}] ++ Opts0
+    end,
+  [{keepalive, true}, {queue_if_disconnected, true}] ++ Opts1.
