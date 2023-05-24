@@ -64,7 +64,8 @@
     find_by/6,
     count/2,
     count_by/3,
-    index_field/5
+    index_field/5,
+    stream_index_range/7
   ]
 ).
 
@@ -381,11 +382,15 @@ find_by(DocName, Conditions, Limit, Offset, State) ->
        State :: state(),
        Response :: sumo_store:result([sumo_internal:doc()], state()).
 find_by(DocName, Conditions, _Sort, _Limit, _Offset, State) ->
-  #state{conn = _Conn, bucket = _Bucket, index = _Index, get_opts = _Opts} =
-    State,
-  TranslatedConditions = transform_conditions(DocName, Conditions),
-  logger:debug("Conditions ~p", [TranslatedConditions]),
-  {ok, [], State}.
+  #state{conn = Conn, bucket = Bucket, index = Index, get_opts = Opts} = State,
+  logger:error("Conditions ~p", [Conditions]),
+  Get =
+    fun (Kst, Acc) -> fetch_docs(DocName, Conn, Bucket, Kst, Opts) ++ Acc end,
+  {Index, StartKey, EndKey} = Conditions,
+  case stream_index_range(Conn, Bucket, Get, Index, StartKey, EndKey, []) of
+    {ok, Docs} -> {ok, Docs, State};
+    {error, Reason, Count} -> {error, {stream_keys, Reason, Count}, State}
+  end.
 
 %%SortOpts = build_sort(Sort),
 %%Query = <<(build_query(TranslatedConditions, Bucket))/binary>>,
@@ -520,7 +525,7 @@ index_field(_Doc, Key, Value, datetime, Acc) ->
 index_field(_Doc, Key, Value, string, Acc) ->
   lists:append(Acc, [{{binary_index, Key}, [Value]}]).
 
-build_index(Doc) ->
+internal_build_index(Doc) ->
   DocName = sumo_internal:doc_name(Doc),
   Schema = sumo_internal:get_schema(DocName),
   SchemaFields = sumo_internal:schema_fields(Schema),
@@ -547,6 +552,11 @@ build_index(Doc) ->
   logger:debug("Build index ~p", [Index]),
   Index.
 
+
+build_index(Doc) -> try internal_build_index(Doc) catch
+    _:Reason : Stacktrace ->
+      logger:error("Error building index. ~p ~p~n", [Reason, Doc]),
+      erlang:display(Stacktrace) end.
 
 update_obj(Conn, Bucket, Id, Doc0, _Opts) ->
   Doc =
@@ -638,17 +648,17 @@ stream_keys(Conn, Bucket, F, Acc) ->
 %  receive_stream(Ref, F, Acc).
 %
 %
-%stream_index_range(Conn, Bucket, F, Index, StartKey, EndKey, Acc) ->
-%  {ok, Ref} =
-%    riakc_pb_socket:get_index_range(
-%      Conn,
-%      Bucket,
-%      Index,
-%      StartKey,
-%      EndKey,
-%      [{stream, true}]
-%    ),
-%  receive_stream(Ref, F, Acc).
+stream_index_range(Conn, Bucket, F, Index, StartKey, EndKey, Acc) ->
+  {ok, Ref} =
+    riakc_pb_socket:get_index_range(
+      Conn,
+      Bucket,
+      Index,
+      StartKey,
+      EndKey,
+      [{stream, true}]
+    ),
+  receive_stream(Ref, F, Acc).
 
 %% @private
 
